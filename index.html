@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ricettario</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1b4a34">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ricettario">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: banner verde + selettore a segmenti + pannelli bianchi + schede ricetta con tessera colorata per categoria */
+:root{
+  --bg:#f1f5ef; --surface:#ffffff; --ink:#14231b; --muted:#566a5e; --line:#dbe4d8;
+  --accent:#2a7a4a; --accent-ink:#ffffff; --warn:#b4531a; --good:#2a7a4a; --chip:#e5eee3;
+  --hero:#1b4a34; --hero-ink:#f1f7f2;
+  --k-primi:#c47a12; --k-secondi:#b23f2a; --k-dolci:#bf3f77; --k-verdure:#38883f; --k-pizze:#9a6a28; --k-antipasti:#22838a; --k-altro:#66768a;
+  --display:"Bricolage Grotesque",system-ui,sans-serif; --body:"Source Sans 3",system-ui,sans-serif;
+  --shadow:0 1px 2px rgba(20,35,27,.06),0 6px 18px rgba(20,35,27,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1913; --surface:#17241c; --ink:#e8f0ea; --muted:#9bb0a3; --line:#28392f;
+    --accent:#5ccb86; --accent-ink:#0a1710; --warn:#f09a63; --good:#5ccb86; --chip:#21332a;
+    --hero:#143a29; --hero-ink:#eaf4ec;
+    --k-primi:#f0b04c; --k-secondi:#f08a74; --k-dolci:#f08ab4; --k-verdure:#7bd286; --k-pizze:#d9a85e; --k-antipasti:#5fd0d6; --k-altro:#a3b2c2;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1913; --surface:#17241c; --ink:#e8f0ea; --muted:#9bb0a3; --line:#28392f;
+  --accent:#5ccb86; --accent-ink:#0a1710; --warn:#f09a63; --good:#5ccb86; --chip:#21332a;
+  --hero:#143a29; --hero-ink:#eaf4ec;
+  --k-primi:#f0b04c; --k-secondi:#f08a74; --k-dolci:#f08ab4; --k-verdure:#7bd286; --k-pizze:#d9a85e; --k-antipasti:#5fd0d6; --k-altro:#a3b2c2;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark;
+}
+[data-cat="Primi"]{--c:var(--k-primi)} [data-cat="Secondi"]{--c:var(--k-secondi)} [data-cat="Dolci"]{--c:var(--k-dolci)}
+[data-cat="Verdure"]{--c:var(--k-verdure)} [data-cat="Pizze-Rustici"]{--c:var(--k-pizze)} [data-cat="Antipasti"]{--c:var(--k-antipasti)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45}
+.wrap{max-width:780px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(64px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left))}
+svg{flex:none}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* banner */
+.hero{position:relative;overflow:hidden;background:var(--hero);color:var(--hero-ink);border-radius:20px;padding:24px 22px 20px;margin-bottom:14px;display:flex;flex-direction:column;gap:12px}
+.hero::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 94% 8%,rgba(255,255,255,.13) 0 54px,transparent 55px),radial-gradient(circle at 82% 105%,rgba(255,255,255,.08) 0 96px,transparent 97px),radial-gradient(circle at 70% 20%,rgba(255,255,255,.06) 0 22px,transparent 23px)}
+.hero h1{font-family:var(--display);font-size:38px;line-height:1;margin:0;letter-spacing:-.02em;text-wrap:balance}
+.hero p{margin:0;opacity:.82;font-size:15px}
+.status{position:relative;z-index:1;align-self:flex-start;background:rgba(255,255,255,.13);border-radius:999px;padding:4px 12px;font-size:13px}
+
+/* schede di sezione */
+.tabs{display:flex;gap:4px;background:var(--chip);padding:4px;border-radius:16px;margin-bottom:14px}
+.tab{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:none;border:0;border-radius:12px;padding:11px 8px;font-weight:600;color:var(--muted)}
+.tab svg{width:18px;height:18px}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.tab:hover:not([aria-selected="true"]){color:var(--ink)}
+
+/* bottoni e campi */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:11px 18px;font-weight:600}
+.btn.big{font-size:17px;padding:13px 22px}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.small{padding:6px 12px;font-size:14px;border-radius:10px}
+.btn[disabled]{opacity:.5;cursor:default}
+.btn:hover:not([disabled]){filter:brightness(1.07)}
+select,input[type=text],input[type=number],input[type=password]{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--ink);min-width:0}
+input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--accent)}
+.search{position:relative}
+.search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:20px;height:20px;color:var(--muted)}
+.search input{width:100%;padding:14px 14px 14px 44px;font-size:18px;border-radius:14px;box-shadow:var(--shadow)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.panel h2{font-family:var(--display);font-size:15px;margin:0 0 10px;color:var(--muted);text-transform:none;letter-spacing:0}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--chip);border:1px solid transparent;border-radius:999px;padding:6px 13px;font-size:14px;display:inline-flex;gap:7px;align-items:center}
+button.chip{border:1px solid var(--line);background:var(--surface)}
+button.chip[data-cat]::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--c,var(--k-altro))}
+button.chip em{font-style:normal;color:var(--muted);font-size:12px}
+button.chip[aria-pressed="true"]{background:color-mix(in srgb,var(--c,var(--accent)) 18%,var(--surface));border-color:var(--c,var(--accent));font-weight:600}
+button.chip[data-diet][aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip .x{background:none;border:0;padding:0 0 0 2px;line-height:1;color:var(--muted);font-size:18px}
+.fridge-chips .chip{background:color-mix(in srgb,var(--accent) 14%,var(--surface));border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.note{font-size:13px;color:var(--muted);margin:8px 0 0}
+
+/* filtri */
+.filters-panel>summary{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;list-style:none;font-weight:600}
+.filters-panel>summary::-webkit-details-marker{display:none}
+.filters-panel>summary .count{font-weight:500;font-size:13px;color:var(--muted)}
+.filters-panel>summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-left:4px;transition:transform .2s}
+.filters-panel[open]>summary::after{transform:rotate(-135deg)}
+.filters-panel .filters{margin-top:14px}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 14px}
+.filters label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.diet{margin-top:12px}
+details>summary{cursor:pointer;font-weight:600;font-size:14px}
+
+/* schede ricetta */
+.card{display:grid;grid-template-columns:48px 1fr;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card.full{border-color:color-mix(in srgb,var(--good) 55%,var(--line))}
+.tile{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:22px;color:var(--c,var(--k-altro));background:color-mix(in srgb,var(--c,var(--k-altro)) 16%,var(--surface))}
+.cbody{min-width:0}
+.card h3{font-family:var(--display);font-size:20px;line-height:1.2;margin:2px 0 8px;text-wrap:balance}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:13px;color:var(--muted);margin-bottom:8px}
+.meta .mi{display:inline-flex;align-items:center;gap:5px}
+.meta .cat{font-weight:700;color:var(--c,var(--k-altro))}
+.pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--chip);color:var(--ink)}
+.pill.good{background:var(--good);color:var(--accent-ink)}
+.pill.warn{background:var(--warn);color:#fff}
+.cov{height:6px;border-radius:99px;background:var(--chip);overflow:hidden;margin:2px 0 8px}
+.cov span{display:block;height:100%;background:var(--good);border-radius:99px}
+.card.partial .cov span{background:var(--warn)}
+.missing{color:var(--warn);font-weight:600;font-size:14px}
+.have{color:var(--good);font-size:14px}
+.detail{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+.detail>summary{color:var(--accent);list-style:none}
+.detail>summary::-webkit-details-marker{display:none}
+.detail>summary::before{content:"▸ ";}
+.detail[open]>summary::before{content:"▾ ";}
+.cols{display:grid;grid-template-columns:1fr;gap:4px 28px;margin-top:6px}
+@media (min-width:640px){.cols{grid-template-columns:1fr 1.5fr}}
+.detail h4{margin:12px 0 6px;font-size:14px;font-family:var(--display)}
+.detail ul{margin:0;padding-left:18px}
+.detail li{margin:3px 0}
+.ing li.m{color:var(--warn);font-weight:600}
+.ing li.h::marker{color:var(--good)}
+.steps{list-style:none;padding:0;margin:0;counter-reset:s}
+.steps li{counter-increment:s;position:relative;padding-left:34px;margin:8px 0}
+.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:var(--chip);color:var(--ink);font-size:12px;font-weight:700;display:grid;place-items:center}
+.detail a{color:var(--accent);font-weight:600}
+.list-head{font-family:var(--display);font-size:16px;margin:18px 2px 10px}
+.empty{color:var(--muted);padding:28px 12px;text-align:center;background:var(--surface);border:1px dashed var(--line);border-radius:16px}
+.drop{border:2px dashed var(--line);border-radius:16px;padding:22px;text-align:center;background:var(--bg)}
+.drop img{max-width:100%;max-height:280px;border-radius:12px;display:block;margin:0 auto 12px}
+.sr{position:absolute;left:-9999px}
+@media (prefers-reduced-motion:no-preference){
+  .card,.btn,.tab,.chip{transition:border-color .2s,background-color .2s,box-shadow .2s,filter .2s}
+  .card:hover{border-color:color-mix(in srgb,var(--c,var(--accent)) 50%,var(--line))}
+}
+@media (max-width:480px){.hero h1{font-size:32px}.card{grid-template-columns:40px 1fr;gap:12px;padding:14px}.tile{width:40px;height:40px;font-size:19px;border-radius:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Ricettario</h1>
+    <p>Le tue ricette di Note: scegli un piatto, usa quello che hai in frigo o scatta una foto.</p>
+    <div class="status" id="status" role="status">Carico le ricette…</div>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Sezioni">
+    <button class="tab" role="tab" id="tab-random" aria-selected="true" data-tab="random"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Ricette</span></button>
+    <button class="tab" role="tab" id="tab-fridge" aria-selected="false" data-tab="fridge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M5 10h14M9 6v1.5M9 13v3"/></svg><span>Dal frigo</span></button>
+    <button class="tab" role="tab" id="tab-photo" aria-selected="false" data-tab="photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Foto</span></button>
+  </div>
+
+  <details class="panel filters-panel" id="filters-panel">
+    <summary><span>Filtri</span><span class="count" id="filters-count"></span></summary>
+    <div class="filters">
+      <label for="f-people">Persone
+        <input type="number" id="f-people" min="1" max="12" value="2">
+      </label>
+      <label for="f-time">Tempo stimato
+        <select id="f-time">
+          <option value="0">Qualsiasi</option>
+          <option value="20">Fino a 20 min</option>
+          <option value="40">Fino a 40 min</option>
+          <option value="60">Fino a 60 min</option>
+        </select>
+      </label>
+      <label for="f-season">Stagione
+        <select id="f-season">
+          <option value="">Qualsiasi</option>
+          <option value="estate">Estate (piatti freschi)</option>
+          <option value="inverno">Inverno (piatti caldi)</option>
+        </select>
+      </label>
+    </div>
+    <details class="diet">
+      <summary>Esclusioni alimentari</summary>
+      <div class="chips" id="diet" style="margin-top:8px"></div>
+      <p class="note">Riconoscimento automatico per parole chiave: controlla sempre gli ingredienti.</p>
+    </details>
+    <p class="note">Tempo, stagione e dosi sono stime ricavate dal testo delle note.</p>
+  </details>
+
+  <!-- CASUALE -->
+  <section id="view-random" role="tabpanel" aria-labelledby="tab-random">
+    <div class="panel">
+            <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="text" id="q" placeholder="Spaghetti, crepes, lasagne…" aria-label="Cerca una ricetta per nome" autocomplete="off"></div>
+      <h2 style="margin-top:16px">Categorie</h2>
+      <div class="chips" id="cats"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn big" id="roll"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>Sorprendimi</button>
+        <span class="note" id="roll-count" style="margin:0"></span>
+      </div>
+    </div>
+    <div id="random-out"></div>
+  </section>
+
+  <!-- DAL FRIGO -->
+  <section id="view-fridge" role="tabpanel" aria-labelledby="tab-fridge" hidden>
+    <div class="panel">
+      <h2>Cosa hai in frigo</h2>
+      <form class="row" id="add-form">
+        <input type="text" id="add-input" list="ing-list" placeholder="Per esempio: melanzane" aria-label="Aggiungi ingrediente" autocomplete="off" style="flex:1;min-width:180px">
+        <button class="btn" type="submit">Aggiungi</button>
+      </form>
+      <datalist id="ing-list"></datalist>
+      <div class="chips fridge-chips" id="fridge" style="margin-top:12px"></div>
+      <div class="row" style="margin-top:12px">
+        <label for="f-miss" class="note" style="margin:0">Mostra anche ricette a cui mancano</label>
+        <select id="f-miss">
+          <option value="0">0 ingredienti</option>
+          <option value="1">fino a 1</option>
+          <option value="2" selected>fino a 2</option>
+          <option value="3">fino a 3</option>
+        </select>
+        <button class="btn ghost small" id="clear-fridge" type="button">Svuota</button>
+      </div>
+      <details style="margin-top:10px">
+        <summary>Sempre in casa (non conto come mancanti)</summary>
+        <div class="chips" id="staples" style="margin-top:8px"></div>
+        <form class="row" id="staple-form" style="margin-top:8px">
+          <input type="text" id="staple-input" placeholder="Aggiungi, per esempio: farina" aria-label="Aggiungi ingrediente sempre in casa" style="flex:1;min-width:160px">
+          <button class="btn ghost small" type="submit">Aggiungi</button>
+        </form>
+      </details>
+    </div>
+    <div id="fridge-out"></div>
+  </section>
+
+  <!-- FOTO -->
+  <section id="view-photo" role="tabpanel" aria-labelledby="tab-photo" hidden>
+    <div class="panel">
+      <h2>Foto del frigo</h2>
+      <div class="drop">
+        <div id="photo-preview"></div>
+        <input type="file" id="photo-file" accept="image/*" class="sr">
+        <label for="photo-file" class="btn" style="display:inline-block;cursor:pointer">Scegli o scatta una foto</label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="photo-go" disabled>Riconosci i prodotti</button>
+        <span class="note" id="photo-msg" style="margin:0"></span>
+      </div>
+    </div>
+    <div class="panel" id="photo-list" hidden>
+      <h2>Prodotti riconosciuti</h2>
+      <p class="note" style="margin:0 0 8px">Togli quelli sbagliati o aggiungine altri, poi cerca le ricette.</p>
+      <div class="chips" id="detected"></div>
+      <form class="row" id="det-form" style="margin-top:10px">
+        <input type="text" id="det-input" placeholder="Aggiungi un prodotto" aria-label="Aggiungi un prodotto riconosciuto" style="flex:1;min-width:160px">
+        <button class="btn ghost small" type="submit">Aggiungi</button>
+      </form>
+      <div class="row" style="margin-top:12px"><button class="btn" id="det-search">Cerca ricette</button></div>
+    </div>
+    <details class="panel" id="key-panel">
+      <summary>Chiave API per riconoscere le foto</summary>
+      <p class="note">Serve una chiave API di Anthropic (console.anthropic.com). Resta salvata solo su questo dispositivo e le foto vengono inviate direttamente ad Anthropic. Ogni analisi costa pochi centesimi.</p>
+      <div class="row" style="margin-top:10px">
+        <input type="password" id="key-input" placeholder="sk-ant-…" aria-label="Chiave API Anthropic" autocomplete="off" style="flex:1;min-width:200px">
+        <button class="btn small" id="key-save" type="button">Salva</button>
+      </div>
+      <p class="note" id="key-msg"></p>
+    </details>
+  </section>
+
+  <section class="panel" id="load-panel">
+    <details>
+      <summary>Dati e aggiornamento</summary>
+      <p class="note">L'app legge il file ricette.txt dal tuo Google Drive tramite un indirizzo personale. Incollalo qui una volta: resta su questo dispositivo.</p>
+      <form class="row" id="url-form" style="margin-top:8px">
+        <input type="text" id="url-input" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Indirizzo dei dati" autocomplete="off" style="flex:1;min-width:220px">
+        <button class="btn small" type="submit">Salva e aggiorna</button>
+      </form>
+      <div class="row" style="margin-top:8px">
+        <button class="btn ghost small" id="reload">Aggiorna ricette</button>
+        <label for="manual-files" class="btn ghost small" style="cursor:pointer">Carica ricette.txt</label>
+        <input type="file" id="manual-files" accept=".txt,text/plain" class="sr">
+      </div>
+      <div class="filters" style="margin-top:10px;max-width:260px">
+        <label for="f-base">Le dosi nelle note sono per (persone)
+          <input type="number" id="f-base" min="1" max="12" value="2">
+        </label>
+      </div>
+      <p class="note" id="data-note"></p>
+    </details>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script>
+"use strict";
+/* ---------- Dati ---------- */
+const KNOWN_CATS = ["Antipasti","Primi","Secondi","Verdure","Dolci","Pizze-Rustici","Altro"];
+
+const DEMO = `# Ricette - categoria: Primi (3 ricette)
+
+Spaghettata di mezzanotte veloce
+
+Ingredienti
+* Spaghetti
+* Aglio
+* Olio extravergine di oliva
+* Peperoncino
+* Prezzemolo fresco
+* Sale
+Steps
+1. Porta a ebollizione una pentola di acqua salata e cuoci gli spaghetti al dente.
+2. Nel frattempo, in una padella, scalda l'olio con l'aglio e il peperoncino.
+3. Scola la pasta e saltala nella padella con l'olio aromatizzato.
+4. Aggiungi il prezzemolo tritato e servi subito.
+Primi
+---
+Melanzagricia
+
+Ingredienti
+* 500g di pasta
+* 2 melanzane medie o 1 grande
+* 3 fette di guanciale
+* 100g di pecorino
+* 1 spicchio di aglio
+* Basilico
+* Olio
+* Sale
+* Pepe
+Steps
+1. Taglia le melanzane a dadini e saltale con aglio, olio e basilico.
+2. Taglia il guanciale a bastoncini e fallo sudare in padella.
+3. Frulla parte delle melanzane con il grasso del guanciale e il pecorino, con un po' di acqua di cottura.
+4. In padella unisci pasta, melanzane a tocchetti e la crema a fuoco spento.
+Primi
+---
+Pasta fredda con tonno, pomodori e mozzarella di bufala
+
+Ingredienti
+* 250g pasta
+* 200g tonno
+* 20g pistacchi
+* 3 pomodori freschi
+* Basilico e pecorino
+* Rucola
+* 100g mozzarella di bufala
+Steps
+1. Cuoci la pasta e scolala al dente.
+2. Lasciala raffreddare con un filo d'olio.
+3. Taglia i pomodori a pezzetti.
+4. Unisci pasta, tonno sgocciolato, pomodori, rucola e mozzarella a cubetti.
+5. Completa con basilico, pecorino e pistacchi tritati. Servi fredda.
+Primi
+`;
+
+/* ---------- Testo e normalizzazione ---------- */
+const strip = s => s.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+const STOP = new Set(("di d del della dello dei degli delle da in con per a al alla e o ed un una uno il lo la i gli le q b qb circa mezzo mezza mezzi mezze piacere scelta facoltativo facoltativa grande grandi medio media medie medi piccolo piccola piccoli piccole fresco fresca freschi fresche tritato tritata tritati tritate macinato macinata grattugiato grattugiata grattugiati sott sotto sgocciolato sgocciolata sgocciolati denocciolate denocciolati denocciolata pelate pelati pelata cotto cotta cotte cotti crudo cruda crude crudi lungo lunga lunghe lunghi tondo tonda secco secca secchi secche intero intera interi intere ruspante extra extravergine vergine evo bio non trattato trattata dolce fino fina grosso grossa spessa spesse sottile sottili fetta fette fettine filetto filetti spicchio spicchi foglia foglie rametto rametti ciuffo mazzetto mazzetti pizzico pizzichi noce cucchiaio cucchiai cucchiaino cucchiaini tazzina tazzine bicchiere bicchieri costa coste testa teste pezzo pezzi punta g gr kg ml l cl litri litro grammi grammo millilitri tbsp tsp cup of the slices slice thin bread to taste enough un po poco qualche alcuni alcune uno due tre quattro cinque sei dieci rossi rosso rossa rosse gialli giallo gialla gialle bianco bianca bianchi bianche nero nera neri nere verde verdi misto mista misti miste preferenza nostro tuo tuoi").split(" "));
+const PASTA = /^(spaghett\w*|linguin\w*|penne|rigaton\w*|fusill\w*|orecchiett\w*|mezz\w*maniche|calamarat\w*|bucatin\w*|tagliatell\w*|paccheri|maccheron\w*|farfall\w*|tonnarell\w*|cavatell\w*|pasta|spaghettoni|chitarra|lasagn\w*|rigatoni|tortiglion\w*|gemell\w*|casarecce)$/;
+function stem(w){
+  w = strip(w).replace(/[^a-z]/g,"");
+  if(!w) return "";
+  if(PASTA.test(w)) return "pasta";
+  if(w.length>6) w = w.replace(/(ini|ino|ina|ine)$/,"");
+  if(w.length>3) w = w.replace(/[aeiou]+$/,"");
+  return w;
+}
+function tokens(raw){
+  const t = strip(raw).replace(/\([^)]*\)/g," ").replace(/\d+([.,]\d+)?(\/\d+)?/g," ").replace(/[^a-z\s']/g," ").replace(/'/g," ");
+  const words = t.split(/\s+/).filter(w=>w && !STOP.has(w) && w.length>1);
+  return words;
+}
+function stems(raw){ return [...new Set(tokens(raw).map(stem).filter(s=>s.length>1))]; }
+
+/* ---------- Parser delle note ---------- */
+function unesc(s){ return s.replace(/\\([\\`*_{}\[\]()#+\-.!>~|])/g,"$1").replace(/ /g," "); }
+function parseRecipes(text, defCat){
+  const lines = unesc(text).split(/\r?\n/).map(l=>l.replace(/\s+$/,""));
+  let cat = defCat;
+  const h = lines.find(l=>/^#\s*Ricette\s*-\s*categoria:/i.test(l));
+  if(h){ const m = h.match(/categoria:\s*([^(]+)/i); if(m) cat = m[1].trim(); }
+  const idx = [];
+  lines.forEach((l,i)=>{ if(/^ingredienti\s*:?$/i.test(l.trim())) idx.push(i); });
+  const folderOf = {};
+  const starts = idx.map(i=>{
+    let j=i-1; while(j>=0 && !lines[j].trim()) j--;
+    const t=j;
+    let k=j-1; while(k>=0 && !lines[k].trim()) k--;
+    if(k>=0){ const fm = lines[k].trim().match(/^Cartella:\s*(.+)$/i); if(fm){ folderOf[t]=fm[1].trim(); return t; } }
+    return j;
+  });
+  const out = [];
+  idx.forEach((i,n)=>{
+    const s = starts[n];
+    if(s<0) return;
+    const title = lines[s].trim().replace(/^#+\s*/,"");
+    if(!title || title==="---") return;
+    const end = n+1<idx.length ? Math.max(i+1, starts[n+1]-(folderOf[starts[n+1]]?1:0)) : lines.length;
+    const ing = [], steps = []; let link = "", label = "", mode = "ing";
+    for(let k=i+1;k<end;k++){
+      const raw = lines[k].trim(); if(!raw) continue;
+      if(raw==="---") break;
+      if(/^steps?\s*:?$/i.test(raw)){ mode="steps"; continue; }
+      const lm = raw.match(/^Link:\s*(\S+)/i);
+      if(lm){ link = lm[1]; break; }
+      if(mode==="ing"){
+        if(/^[*\-•]\s+/.test(raw)) ing.push(raw.replace(/^[*\-•]\s+/,"").trim());
+      } else {
+        if(/^\d+\.\s*/.test(raw) || steps.length===0 && raw.length>25) steps.push(raw.replace(/^\d+\.\s*/,""));
+        else if(raw.length<=24 && !/[.!?]$/.test(raw)) label = raw;
+        else steps.push(raw);
+      }
+    }
+    let c = cat;
+    const fkey = folderOf[s];
+    const known = fkey ? (KNOWN_CATS.find(k=>strip(k)===strip(fkey).replace(/\s+/g,"-")) || fkey) : null;
+    const known2 = KNOWN_CATS.find(k=>strip(k)===strip(label).replace(/\s*e\s*/,"-").replace(/\s+/g,"-")) || KNOWN_CATS.find(k=>strip(k)===strip(label));
+    if(known) c = known; else if(known2) c = known2; else if(!cat) c = "Altro";
+    if(!ing.length) return;
+    out.push({title, cat:c||"Altro", ing, steps, link});
+  });
+  return out;
+}
+
+/* ---------- Arricchimento: tempo, stagione, dieta ---------- */
+const DIET = {
+  vegetariano:{label:"Vegetariano", re:/manzo|vitello|maiale|suino|pollo|tacchino|guanciale|pancetta|speck|prosciutto|salame|soppressata|salsiccia|\bcarne\b|agnello|coniglio|mortadella|bresaola|wurstel|arista|solomillo|filet|frango|cerdo|\bham\b|nduja|tonno|alic[ie]|acciug|salmone|gamber|vongol|cozze|pesce|merluzzo|baccal|polpo|calamar|seppi|scampi|\bbirra\b.*carne/i},
+  lattosio:{label:"Senza lattosio", re:/latte|burro|panna|formagg|parmigian|pecorino|mozzarell|ricott|gorgonzol|mascarpone|yogurt|iogurt|feta|robiola|fontina|provol|brie|stracciatell|burrata|cacioricott|grana|besciamell|bechamel|tomme|\bnata\b|queso|crema pasticcera|roquefort/i},
+  glutine:{label:"Senza glutine", re:/pasta|spaghett|linguin|penne|fusill|orecchiett|maniche|farina|\bpane\b|pangrattato|mollica|pizza|biscott|savoiard|couscous|\borzo\b|farro|calamarat|tortellin|gnocchi|semola|sfoglia|rigaton|bucatin|maccheron|tagliatell|lasagn|ravioli|cracker|bread|cannelloni/i},
+  guscio:{label:"Senza frutta a guscio", re:/nocciol|mandorl|pistacch|\bnoci\b|\bnoce\b(?!\s*moscata)|pinoli|anacard|arachid/i},
+  uova:{label:"Senza uova", re:/\buov[ao]|tuorl|albume|maionese/i},
+  pesce:{label:"Senza pesce", re:/tonno|alic[ie]|acciug|salmone|gamber|vongol|cozze|pesce|merluzzo|baccal|polpo|calamar|seppi|scampi/i}
+};
+const SUMMER = /fredd|estiv|crudaiol|gelato|semifredd|insalat|anguria|melone|pesca|pesche|albicocc|senza cottura|menta|granita/i;
+const WINTER = /brodo|zuppa|minestr|rag[uù]|arrosto|fonduta|lenticch|castagn|cavolfior|zucca|panettone|stufato|bollit|polenta|caldo|brasat|gratin/i;
+
+function enrich(r){
+  const ingText = r.ing.join(" \n ");
+  const all = r.title+" "+ingText+" "+r.steps.join(" ");
+  r.stems = r.ing.map(l=>({line:l, st:stems(l), opt:/facoltativ|a piacere|optional/i.test(l)}));
+  let mins = 0;
+  r.steps.join(" ").replace(/(\d+)(?:\s*[-–]\s*\d+)?\s*(?:min\b|minuti|')/gi,(m,n)=>{mins+=+n;return m;});
+  r.steps.join(" ").replace(/(\d+)\s*or[ae]\b/gi,(m,n)=>{mins+=+n*60;return m;});
+  r.time = Math.max(10, Math.min(240, Math.round((10 + 3*r.steps.length + 0.7*mins)/5)*5));
+  const sm = (all.match(new RegExp(SUMMER.source,"gi"))||[]).length;
+  const wn = (all.match(new RegExp(WINTER.source,"gi"))||[]).length;
+  r.season = sm>wn ? "estate" : wn>sm ? "inverno" : "";
+  r.flags = {};
+  for(const k in DIET) r.flags[k] = DIET[k].re.test(ingText+" "+r.title);
+  return r;
+}
+
+/* ---------- Stato ---------- */
+const S = {
+  recipes:[], source:"", tab:"random", mode:"list", cats:new Set(), last:null,
+  fridge:[], detected:[], excl:new Set(), photo:null,
+  staples:["sale","pepe","olio","acqua","zucchero","farina"]
+};
+const $ = id => document.getElementById(id);
+function save(){ try{ localStorage.setItem("ricettario-v1",JSON.stringify({fridge:S.fridge,staples:S.staples,excl:[...S.excl],people:$("f-people").value,base:$("f-base").value})); }catch(e){} }
+function restore(){ try{ const d=JSON.parse(localStorage.getItem("ricettario-v1")||"null"); if(!d) return;
+  S.fridge=d.fridge||[]; S.staples=d.staples||S.staples; S.excl=new Set(d.excl||[]);
+  if(d.people) $("f-people").value=d.people; if(d.base) $("f-base").value=d.base; }catch(e){} }
+
+/* ---------- Filtri ---------- */
+function passes(r){
+  const t = +$("f-time").value; if(t && r.time>t) return false;
+  const se = $("f-season").value; if(se && r.season && r.season!==se) return false;
+  for(const k of S.excl) if(r.flags[k]) return false;
+  return true;
+}
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- Dosi ---------- */
+function fmtNum(v){
+  if(v>=10) return String(Math.round(v));
+  const f = Math.round(v*2)/2;
+  if(Math.abs(v-f)<0.06){ if(f%1===0.5) return (f>=1? Math.floor(f)+" ":"")+"1/2"; return String(f); }
+  return (Math.round(v*10)/10).toString().replace(".",",");
+}
+function scaleLine(line, k){
+  if(k===1) return line;
+  return line.replace(/(\d+(?:[.,]\d+)?)(?:\/(\d+))?/g,(m,a,b)=>{
+    let v = parseFloat(a.replace(",",".")); if(b) v = v/parseFloat(b);
+    return fmtNum(v*k);
+  });
+}
+
+/* ---------- Matching ---------- */
+function stapleSet(){ return new Set(S.staples.flatMap(stems)); }
+function match(r, fridgeStems){
+  const sp = stapleSet(); const fz = [...fridgeStems];
+  const have=[], miss=[];
+  for(const it of r.stems){
+    if(!it.st.length || sp.has(it.st[0])) continue;   // ingrediente di base (la parola principale è tra i "sempre in casa")
+    const core = it.st.filter(s=>!sp.has(s));
+    if(!core.length) continue;
+    const ok = core.some(s=>fridgeStems.has(s) || (s.length>=5 && fz.some(f=>f.length>=5 && lev(s,f,1)<=1)));
+    if(ok) have.push(it.line); else if(!it.opt) miss.push(it.line);
+  }
+  return {have, miss};
+}
+
+/* ---------- Rendering ---------- */
+const ICON_CLOCK='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const ICON_USERS='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 5a3.5 3.5 0 0 1 0 6.5M18 14.5c2 .7 3.5 2.6 3.5 5.5"/></svg>';
+function card(r, m){
+  const people = Math.max(1, +$("f-people").value||2), base = Math.max(1, +$("f-base").value||2);
+  const k = people/base;
+  const missSet = m ? new Set(m.miss) : null;
+  const need = m ? m.have.length+m.miss.length : 0;
+  const badge = m ? (m.miss.length===0 ? `<span class="pill good">Hai tutto</span>` : `<span class="pill warn">Mancano ${m.miss.length}</span>`) : "";
+  const bar = m && need ? `<div class="cov" role="img" aria-label="Hai ${m.have.length} ingredienti su ${need}"><span style="width:${Math.round(m.have.length/need*100)}%"></span></div>` : "";
+  const lines = r.ing.map(l=>{
+    const cls = m ? (missSet.has(l) ? "m" : (m.have.includes(l)?"h":"")) : "";
+    return `<li class="${cls}">${esc(scaleLine(l,k))}</li>`;
+  }).join("");
+  const steps = r.steps.map(s=>`<li>${esc(s)}</li>`).join("");
+  const missTxt = m && m.miss.length ? `<div class="missing">Manca: ${m.miss.map(x=>esc(x.replace(/^[\d.,/\s]+(g|gr|kg|ml|l)?\s*(di\s+)?/i,""))).join(", ")}</div>` : "";
+  const cls = m ? (m.miss.length? "partial":"full") : "";
+  return `<article class="card ${cls}" data-cat="${esc(r.cat)}">
+    <div class="tile" aria-hidden="true">${esc(r.cat.charAt(0).toUpperCase())}</div>
+    <div class="cbody">
+      <h3>${esc(r.title)}</h3>
+      <div class="meta"><span class="cat">${esc(r.cat)}</span><span class="mi">${ICON_CLOCK}~${r.time} min</span><span class="mi">${ICON_USERS}${people}</span>${r.season?`<span>${r.season==="estate"?"Piatto fresco":"Piatto caldo"}</span>`:""}${badge}</div>
+      ${bar}
+      ${m?`<div class="have">${m.have.length} ${m.have.length===1?"ingrediente che hai":"ingredienti che hai"}</div>`:""}
+      ${missTxt}
+      <details class="detail"><summary>Apri la ricetta</summary>
+        <div class="cols">
+          <div><h4>Ingredienti${k!==1?` (dosi per ${people})`:""}</h4><ul class="ing">${lines}</ul></div>
+          <div>${steps?`<h4>Procedimento</h4><ol class="steps">${steps}</ol>`:""}</div>
+        </div>
+        ${r.link?`<p style="margin:12px 0 0"><a href="${esc(r.link)}" target="_blank" rel="noopener">Apri il video originale</a></p>`:""}
+      </details>
+    </div>
+  </article>`;
+}
+
+function renderCats(){
+  const counts = {}; S.recipes.forEach(r=>counts[r.cat]=(counts[r.cat]||0)+1);
+  const names = Object.keys(counts).sort((a,b)=>KNOWN_CATS.indexOf(a)-KNOWN_CATS.indexOf(b));
+  $("cats").innerHTML = names.map(c=>`<button class="chip" type="button" data-cat="${esc(c)}" aria-pressed="${S.cats.has(c)}">${esc(c)} <em>${counts[c]}</em></button>`).join("");
+  const n = pool().length;
+  $("roll-count").textContent = n+(n===1?" ricetta disponibile":" ricette disponibili");
+}
+function updateFilterCount(){
+  let n = (+$("f-time").value?1:0)+($("f-season").value?1:0)+S.excl.size;
+  const p = Math.max(1,+$("f-people").value||2);
+  $("filters-count").textContent = p+(p===1?" persona":" persone")+(n?` · ${n} ${n===1?"filtro attivo":"filtri attivi"}`:"");
+}
+function qTerms(){ return strip($("q").value).split(/[^a-z0-9]+/).filter(Boolean); }
+function termStem(t){ if(t.length<4) return t; let x=t.replace(/s$/,"").replace(/[aeiou]+$/,""); return x.length>=3?x:t; }
+function lev(a,b,max){
+  if(Math.abs(a.length-b.length)>max) return max+1;
+  const al=a.length, bl=b.length; let prev2=null, prev=Array.from({length:bl+1},(_,j)=>j);
+  for(let i=1;i<=al;i++){
+    const cur=[i]; let min=i;
+    for(let j=1;j<=bl;j++){
+      const c = a[i-1]===b[j-1]?0:1;
+      let v = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+c);
+      if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1]) v = Math.min(v, prev2[j-2]+1);
+      cur[j]=v; if(v<min) min=v;
+    }
+    if(min>max) return max+1;
+    prev2=prev; prev=cur;
+  }
+  return prev[bl];
+}
+const WORDS = new WeakMap();
+function words(r){ let w=WORDS.get(r); if(!w){ w={t:strip(r.title).split(/[^a-z0-9]+/).filter(Boolean), i:strip(r.ing.join(" ")).split(/[^a-z0-9]+/).filter(Boolean)}; WORDS.set(r,w); } return w; }
+function wordScore(term, ws){
+  const st = termStem(term); let best = 0;
+  for(const w of ws){
+    let sc = 0;
+    if(w===term) sc = 4;
+    else if(w.startsWith(term)) sc = 3;
+    else if(term.length>=3 && w.startsWith(st)) sc = 2;
+    else if(st.length>=3 && w.includes(st)) sc = 1;
+    else if(term.length>=4){ const mx = term.length>=8?2:1; if(lev(term,w.slice(0,term.length),mx)<=mx || lev(term,w,mx)<=mx || (st.length>=4 && lev(st,w.slice(0,st.length),1)<=1)) sc = 0.5; }
+    if(sc>best) best = sc;
+  }
+  return best;
+}
+/* >=10: tutte le parole trovate nel titolo; 1: solo negli ingredienti; 0: nessuna corrispondenza */
+function qMatch(r, terms){
+  if(!terms.length) return 10;
+  const w = words(r);
+  const ts = terms.map(t=>wordScore(t,w.t));
+  if(ts.every(x=>x>0)) return 10 + ts.reduce((a,b)=>a+b,0);
+  const all = w.t.concat(w.i);
+  return terms.every(t=>wordScore(t,all)>0) ? 1 : 0;
+}
+function pool(){
+  const terms = qTerms();
+  const list = S.recipes.filter(r=>(!S.cats.size||S.cats.has(r.cat)) && passes(r));
+  if(!terms.length) return list;
+  const sc = list.map(r=>({r, s:qMatch(r,terms)})).filter(x=>x.s>0);
+  const byName = sc.filter(x=>x.s>=10);
+  const use = byName.length ? byName : sc;
+  return use.sort((a,b)=>b.s-a.s || a.r.title.localeCompare(b.r.title,"it")).map(x=>x.r);
+}
+function renderRandom(){
+  renderCats();
+  const out = $("random-out"), terms = qTerms(), p = pool();
+  if(S.mode==="roll" && S.last && p.includes(S.last)){ out.innerHTML = card(S.last,null).replace("<details","<details open"); return; }
+  if(terms.length){
+    if(!p.length){ out.innerHTML = `<p class="empty">Nessuna ricetta trovata per "${esc($("q").value.trim())}". Prova con una parola sola o togli una categoria.</p>`; return; }
+    const names = p.every(r=>qMatch(r,terms)>=10);
+    out.innerHTML = `<h2 class="list-head">${p.length} ${p.length===1?"ricetta trovata":"ricette trovate"}${names?"":" (parola presente negli ingredienti)"}</h2>`+p.slice(0,50).map(r=>card(r,null)).join("")+(p.length>50?`<p class="note">Ne mostro 50: scrivi altre lettere per restringere.</p>`:"");
+    return;
+  }
+  out.innerHTML = `<p class="empty">Scrivi il nome di un piatto oppure premi Sorprendimi per averne uno a caso.</p>`;
+}
+function roll(){
+  const p = pool();
+  if(!p.length){ S.mode="list"; renderRandom(); return; }
+  let r; do { r = p[Math.floor(Math.random()*p.length)]; } while(p.length>1 && r===S.last);
+  S.last = r; S.mode = "roll"; renderRandom();
+}
+function fridgeStems(){ return new Set(S.fridge.flatMap(stems)); }
+function renderFridge(){
+  $("fridge").innerHTML = S.fridge.length ? S.fridge.map((x,i)=>`<span class="chip">${esc(x)}<button class="x" type="button" data-del="${i}" aria-label="Togli ${esc(x)}">×</button></span>`).join("") : `<span class="note" style="margin:0">Nessun ingrediente. Aggiungili qui sopra o scatta una foto.</span>`;
+  $("staples").innerHTML = S.staples.map((x,i)=>`<span class="chip">${esc(x)}<button class="x" type="button" data-sdel="${i}" aria-label="Togli ${esc(x)}">×</button></span>`).join("");
+  const out = $("fridge-out");
+  if(!S.fridge.length){ out.innerHTML = ""; return; }
+  const fs = fridgeStems(), maxMiss = +$("f-miss").value;
+  const minHave = S.fridge.length>=2 ? 2 : 1;
+  const scored = S.recipes.filter(passes).map(r=>({r, m:match(r,fs)})).filter(x=>x.m.have.length>=1)
+    .sort((a,b)=>a.m.miss.length-b.m.miss.length || b.m.have.length-a.m.have.length);
+  const res = scored.filter(x=>x.m.have.length>=minHave && x.m.miss.length<=maxMiss);
+  const full = res.filter(x=>x.m.miss.length===0), part = res.filter(x=>x.m.miss.length>0);
+  const h = t=>`<h2 class="list-head">${t}</h2>`;
+  let html = "";
+  if(full.length) html += h(`Pronte da fare (${full.length})`)+full.slice(0,30).map(x=>card(x.r,x.m)).join("");
+  if(part.length) html += h(`Quasi pronte (${part.length})`)+part.slice(0,40).map(x=>card(x.r,x.m)).join("");
+  if(res.length<6){
+    const inRes = new Set(res.map(x=>x.r));
+    const near = scored.filter(x=>!inRes.has(x.r)).slice(0,10);
+    if(near.length) html += h(res.length?"Altre ricette con i tuoi ingredienti":"Ricette con i tuoi ingredienti, a cui mancano più cose")+near.map(x=>card(x.r,x.m)).join("");
+  }
+  out.innerHTML = html || `<p class="empty">Nessuna ricetta contiene questi ingredienti tra le ${S.recipes.length} lette (${esc(S.source)}). Prova con un altro nome, per esempio al singolare o al plurale.</p>`;
+}
+function renderDetected(){
+  $("photo-list").hidden = !S.detected.length;
+  $("detected").innerHTML = S.detected.map((x,i)=>`<span class="chip">${esc(x)}<button class="x" type="button" data-ddel="${i}" aria-label="Togli ${esc(x)}">×</button></span>`).join("");
+}
+function renderDiet(){
+  $("diet").innerHTML = Object.entries(DIET).map(([k,v])=>`<button class="chip" type="button" data-diet="${k}" aria-pressed="${S.excl.has(k)}">${v.label}</button>`).join("");
+}
+function buildDatalist(){
+  const c = {};
+  S.recipes.forEach(r=>r.ing.forEach(l=>{ const t=tokens(l).slice(0,2).join(" "); if(t.length>2) c[t]=(c[t]||0)+1; }));
+  $("ing-list").innerHTML = Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,250).map(([k])=>`<option value="${esc(k)}">`).join("");
+}
+function refresh(){ updateFilterCount(); renderCats(); if(S.tab==="fridge") renderFridge(); if(S.tab==="random") renderRandom(); }
+function setStatus(t){ $("status").textContent = t; }
+function setRecipes(list, source){
+  const seen = new Set(), out = [];
+  list.forEach(r=>{ const k=strip(r.title).replace(/\s+/g," "); if(seen.has(k)) return; seen.add(k); out.push(enrich(r)); });
+  S.recipes = out; S.source = source; buildDatalist(); refresh();
+  setStatus(out.length+" ricette · "+source);
+  $("data-note").textContent = "Categorie trovate: "+[...new Set(out.map(r=>r.cat))].join(", ")+".";
+}
+
+/* ---------- Caricamento ricette ---------- */
+const TXT_KEY = "ricettario-txt";
+function fromText(t, label){
+  const list = parseRecipes(t,"Altro");
+  if(!list.length) throw new Error("nessuna ricetta riconosciuta nel file");
+  setRecipes(list, label);
+  return list.length;
+}
+const URL_KEY = "ricettario-url";
+function getDataUrl(){
+  let u = ""; try{ u = localStorage.getItem(URL_KEY)||""; }catch(e){}
+  return u || (window.CONFIG && CONFIG.dataUrl) || "";
+}
+function readPayload(raw){
+  try{ const j = JSON.parse(raw); if(j && typeof j.text==="string") return {text:j.text, modified:j.modified}; }catch(e){}
+  return {text:raw, modified:null};
+}
+async function loadData(){
+  const url = getDataUrl();
+  $("url-input").value = getDataUrl();
+  if(!url){
+    let cached = null; try{ cached = localStorage.getItem(TXT_KEY); }catch(_){}
+    try{ if(cached){ fromText(cached,"copia salvata sul dispositivo"); return; } }catch(_){}
+    setRecipes(parseRecipes(DEMO,"Primi"), "solo 3 ricette di esempio: inserisci l'indirizzo dei dati");
+    $("load-panel").querySelector("details").open = true;
+    return;
+  }
+  setStatus("Carico le ricette da Drive…");
+  try{
+    const r = await fetch(url+(url.includes("?")?"&":"?")+"t="+Date.now(), {cache:"no-store"});
+    if(!r.ok) throw new Error("risposta "+r.status);
+    const {text, modified} = readPayload(await r.text());
+    if(text.trim().startsWith("<")) throw new Error("l'indirizzo non restituisce le ricette: controlla che l'accesso sia impostato su Chiunque");
+    const d = modified ? new Date(modified) : null;
+    fromText(text, d && !isNaN(d) ? "da Drive, file del "+d.toLocaleDateString("it-IT")+" "+d.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}) : "da Drive");
+    try{ localStorage.setItem(TXT_KEY, text); }catch(e){}
+  }catch(e){
+    console.warn(e);
+    let cached = null; try{ cached = localStorage.getItem(TXT_KEY); }catch(_){}
+    try{
+      if(cached) fromText(cached, "copia salvata, Drive non raggiungibile ("+(e.message||e)+")");
+      else throw e;
+    }catch(_){
+      setRecipes(parseRecipes(DEMO,"Primi"), "solo 3 ricette di esempio, Drive non raggiungibile: "+(e.message||e));
+      $("load-panel").querySelector("details").open = true;
+    }
+  }
+}
+
+/* ---------- Foto ---------- */
+function shrink(file){
+  return new Promise((res,rej)=>{
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      const max = 1280, sc = Math.min(1, max/Math.max(img.width,img.height));
+      const c = document.createElement("canvas"); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+      c.toBlob(b=>{ URL.revokeObjectURL(url); b?res(b):rej(new Error("immagine non leggibile")); },"image/jpeg",0.85);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); rej(new Error("immagine non leggibile")); };
+    img.src = url;
+  });
+}
+const KEY_NAME = "ricettario-apikey", MODEL = "claude-sonnet-5-5";
+function getKey(){ try{ return localStorage.getItem(KEY_NAME)||""; }catch(e){ return ""; } }
+function blobToB64(b){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(String(fr.result).split(",")[1]); fr.onerror=()=>rej(new Error("immagine non leggibile")); fr.readAsDataURL(b); }); }
+async function recognize(){
+  $("photo-go").disabled = true; $("photo-msg").textContent = "Analizzo la foto…";
+  try{
+    const key = getKey();
+    if(!key){ $("key-panel").open = true; throw new Error("Inserisci prima la tua chiave API di Anthropic qui sotto."); }
+    const data = await blobToB64(await shrink(S.photo));
+    const prompt = "Questa è la foto del frigo o della dispensa di una persona italiana. Elenca i prodotti alimentari che riconosci con certezza, come ingredienti di cucina in italiano, al singolare o al plurale naturale (per esempio: uova, latte, zucchine, mozzarella, passata di pomodoro). Una voce per prodotto, senza marche, senza quantità, senza duplicati. Se un oggetto non è chiaro, omettilo. Rispondi solo con un array JSON di stringhe.";
+    const resp = await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:MODEL,max_tokens:800,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:"image/jpeg",data}},{type:"text",text:prompt}]}]})
+    });
+    const j = await resp.json().catch(()=>({}));
+    if(!resp.ok) throw new Error(resp.status===401 ? "Chiave API non valida." : (j.error && j.error.message) || "Errore del servizio ("+resp.status+").");
+    const txt = (j.content||[]).map(c=>c.text||"").join("");
+    const m = txt.match(/\[[\s\S]*\]/); if(!m) throw new Error("Risposta non leggibile, riprova.");
+    const arr = JSON.parse(m[0]).map(x=>String(x).trim().toLowerCase()).filter(Boolean);
+    S.detected = [...new Set(arr)];
+    $("photo-msg").textContent = S.detected.length ? S.detected.length+" prodotti riconosciuti." : "Non ho riconosciuto prodotti. Prova con una foto più ravvicinata.";
+    renderDetected();
+  }catch(e){ $("photo-msg").textContent = e.message || "Analisi non riuscita."; }
+  finally{ $("photo-go").disabled = !S.photo; }
+}
+
+/* ---------- Eventi ---------- */
+function showTab(t){
+  S.tab = t; if(t==="random") renderRandom();
+  document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected", String(b.dataset.tab===t)));
+  ["random","fridge","photo"].forEach(v=>$("view-"+v).hidden = v!==t);
+  if(t==="fridge") renderFridge();
+}
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
+$("cats").addEventListener("click",e=>{ const b=e.target.closest("[data-cat]"); if(!b) return; const c=b.dataset.cat; S.cats.has(c)?S.cats.delete(c):S.cats.add(c); S.mode = S.mode==="roll" ? "list" : S.mode; renderRandom(); });
+$("q").addEventListener("input",()=>{ S.mode="list"; renderRandom(); });
+$("roll").addEventListener("click",roll);
+$("diet").addEventListener("click",e=>{ const b=e.target.closest("[data-diet]"); if(!b) return; const k=b.dataset.diet; S.excl.has(k)?S.excl.delete(k):S.excl.add(k); renderDiet(); save(); refresh(); });
+["f-people","f-time","f-season","f-base","f-miss"].forEach(id=>$(id).addEventListener("change",()=>{ save(); refresh(); }));
+$("add-form").addEventListener("submit",e=>{ e.preventDefault(); const v=$("add-input").value.trim().toLowerCase(); if(v && !S.fridge.includes(v)) S.fridge.push(v); $("add-input").value=""; save(); renderFridge(); });
+$("fridge").addEventListener("click",e=>{ const b=e.target.closest("[data-del]"); if(!b) return; S.fridge.splice(+b.dataset.del,1); save(); renderFridge(); });
+$("clear-fridge").addEventListener("click",()=>{ S.fridge=[]; save(); renderFridge(); });
+$("staples").addEventListener("click",e=>{ const b=e.target.closest("[data-sdel]"); if(!b) return; S.staples.splice(+b.dataset.sdel,1); save(); renderFridge(); });
+$("staple-form").addEventListener("submit",e=>{ e.preventDefault(); const v=$("staple-input").value.trim().toLowerCase(); if(v && !S.staples.includes(v)) S.staples.push(v); $("staple-input").value=""; save(); renderFridge(); });
+$("photo-file").addEventListener("change",e=>{
+  const f = e.target.files[0]; if(!f) return; S.photo = f;
+  const u = URL.createObjectURL(f); $("photo-preview").innerHTML = `<img alt="Anteprima della foto del frigo" src="${u}">`;
+  $("photo-go").disabled = false; $("photo-msg").textContent = "";
+});
+$("photo-go").addEventListener("click",recognize);
+$("detected").addEventListener("click",e=>{ const b=e.target.closest("[data-ddel]"); if(!b) return; S.detected.splice(+b.dataset.ddel,1); renderDetected(); });
+$("det-form").addEventListener("submit",e=>{ e.preventDefault(); const v=$("det-input").value.trim().toLowerCase(); if(v && !S.detected.includes(v)) S.detected.push(v); $("det-input").value=""; renderDetected(); });
+$("det-search").addEventListener("click",()=>{ S.detected.forEach(x=>{ if(!S.fridge.includes(x)) S.fridge.push(x); }); save(); showTab("fridge"); });
+$("reload").addEventListener("click",loadData);
+$("url-form").addEventListener("submit",e=>{ e.preventDefault(); const v=$("url-input").value.trim(); try{ v?localStorage.setItem(URL_KEY,v):localStorage.removeItem(URL_KEY); }catch(_){} loadData(); });
+$("key-input").value = getKey();
+$("key-save").addEventListener("click",()=>{ const v=$("key-input").value.trim(); try{ v?localStorage.setItem(KEY_NAME,v):localStorage.removeItem(KEY_NAME); }catch(e){} $("key-msg").textContent = v?"Chiave salvata su questo dispositivo.":"Chiave rimossa."; });
+$("manual-files").addEventListener("change",async e=>{
+  const f = e.target.files[0]; if(!f) return;
+  try{ const t = await f.text(); const n = fromText(t,"file caricato a mano"); try{ localStorage.setItem(TXT_KEY,t); }catch(_){} setStatus(n+" ricette · file caricato a mano"); }
+  catch(err){ setStatus("Il file non contiene ricette riconoscibili."); }
+});
+
+/* ---------- Avvio ---------- */
+restore(); renderDiet();
+setRecipes(parseRecipes(DEMO,"Primi"),"carico…");
+loadData();
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); }); }
+</script>
+</body>
+</html>

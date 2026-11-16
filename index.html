@@ -403,15 +403,16 @@ function parseRecipes(text, defCat){
     const title = lines[s].trim().replace(/^#+\s*/,"");
     if(!title || title==="---") return;
     const end = n+1<idx.length ? Math.max(i+1, starts[n+1]-(folderOf[starts[n+1]]?1:0)) : lines.length;
-    const ing = [], steps = []; let link = "", label = "", mode = "ing";
+    const ing = [], steps = [], loose = []; let link = "", label = "", mode = "ing";
     for(let k=i+1;k<end;k++){
       const raw = lines[k].trim(); if(!raw) continue;
       if(raw==="---") break;
-      if(/^steps?\s*:?$/i.test(raw)){ mode="steps"; continue; }
+      if(/^steps?\s*:?$/i.test(raw) || /^[*\-•]?\s*(preparazione|procedimento)(\s+e\s+cottura)?\s*:?$/i.test(raw)){ mode="steps"; continue; }
       const lm = raw.match(/^Link:\s*(\S+)/i);
       if(lm){ link = lm[1]; break; }
       if(mode==="ing"){
         if(/^[*\-•]\s+/.test(raw)) ing.push(raw.replace(/^[*\-•]\s+/,"").trim());
+        else if(!/^cartella:/i.test(raw) && !/^per\s/i.test(raw) && raw.length<=90 && !KNOWN_CATS.some(k=>strip(k)===strip(raw).replace(/\s+/g,"-"))) loose.push(raw.replace(/\s*:$/,""));
       } else {
         if(/^\d+\.\s*/.test(raw) || steps.length===0 && raw.length>25) steps.push(raw.replace(/^\d+\.\s*/,""));
         else if(raw.length<=24 && !/[.!?]$/.test(raw)) label = raw;
@@ -423,6 +424,11 @@ function parseRecipes(text, defCat){
     const known = fkey ? (KNOWN_CATS.find(k=>strip(k)===strip(fkey).replace(/\s+/g,"-")) || fkey) : null;
     const known2 = KNOWN_CATS.find(k=>strip(k)===strip(label).replace(/\s*e\s*/,"-").replace(/\s+/g,"-")) || KNOWN_CATS.find(k=>strip(k)===strip(label));
     if(known) c = known; else if(known2) c = known2; else if(!cat) c = "Altro";
+    if(!ing.length){
+      // ingredienti scritti senza puntino: li leggo comunque; se sono pochi aggiungo il titolo come ingrediente principale
+      ing.push(...loose.slice(0,40));
+      if(ing.length<3 && !ing.some(x=>strip(x)===strip(title))) ing.push(title);
+    }
     if(!ing.length) return;
     out.push({title, cat:c||"Altro", ing, steps, link});
   });

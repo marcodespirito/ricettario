@@ -87,6 +87,7 @@ input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--
 button.chip{border:1px solid var(--line);background:var(--surface)}
 button.chip[data-cat]::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--c,var(--k-altro))}
 button.chip em{font-style:normal;color:var(--muted);font-size:12px}
+button.btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 button.chip[aria-pressed="true"]{background:color-mix(in srgb,var(--c,var(--accent)) 18%,var(--surface));border-color:var(--c,var(--accent));font-weight:600}
 button.chip[data-diet][aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .chip .x{background:none;border:0;padding:0 0 0 2px;line-height:1;color:var(--muted);font-size:18px}
@@ -212,6 +213,7 @@ dialog#ed::backdrop{background:rgba(0,0,0,.5)}
       <div class="chips" id="cats"></div>
       <div class="row" style="margin-top:12px">
         <button class="btn big" id="roll"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>Sorprendimi</button>
+        <button class="btn ghost" id="browse" type="button" aria-pressed="false">Elenca tutte</button>
         <span class="note" id="roll-count" style="margin:0"></span>
         <button class="btn ghost small" id="new-recipe" type="button" hidden>+ Nuova ricetta</button>
       </div>
@@ -294,6 +296,7 @@ dialog#ed::backdrop{background:rgba(0,0,0,.5)}
         <input type="text" id="url-input" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Indirizzo dei dati" autocomplete="off" style="flex:1;min-width:220px">
         <button class="btn small" type="submit">Salva e aggiorna</button>
       </form>
+      <p class="note" id="load-msg" role="status" style="margin:8px 0 0"></p>
       <div class="row" style="margin-top:8px">
         <button class="btn ghost small" id="reload">Aggiorna ricette</button>
         <label for="manual-files" class="btn ghost small" style="cursor:pointer">Carica ricette.txt</label>
@@ -497,7 +500,7 @@ function enrich(r){
 
 /* ---------- Stato ---------- */
 const S = {
-  recipes:[], source:"", tab:"random", mode:"list", cats:new Set(), last:null,
+  recipes:[], source:"", tab:"random", mode:"list", browse:false, shown:40, cats:new Set(), last:null,
   fridge:[], detected:[], excl:new Set(), photo:null,
   staples:["sale","pepe","olio","acqua","zucchero","farina"]
 };
@@ -656,7 +659,14 @@ function renderRandom(){
     out.innerHTML = `<h2 class="list-head">${p.length} ${p.length===1?"ricetta trovata":"ricette trovate"}${names?"":" (parola presente negli ingredienti)"}</h2>`+p.slice(0,50).map(r=>card(r,null)).join("")+(p.length>50?`<p class="note">Ne mostro 50: scrivi altre lettere per restringere.</p>`:"");
     return;
   }
-  out.innerHTML = `<p class="empty">Scrivi il nome di un piatto oppure premi Sorprendimi per averne uno a caso.</p>`;
+  if(S.cats.size || S.browse){
+    const all = p.slice().sort((a,b)=>a.title.localeCompare(b.title,"it"));
+    const n = Math.min(S.shown, all.length);
+    const what = S.cats.size ? [...S.cats].join(", ") : "tutte le categorie";
+    out.innerHTML = `<h2 class="list-head">${all.length} ${all.length===1?"ricetta":"ricette"} · ${esc(what)} · in ordine alfabetico</h2>`+all.slice(0,n).map(r=>card(r,null)).join("")+(n<all.length?`<button class="btn ghost" id="more" type="button" style="margin:12px 0">Mostra altre ${Math.min(40,all.length-n)} (${all.length-n} restanti)</button>`:"");
+    return;
+  }
+  out.innerHTML = `<p class="empty">Scrivi il nome di un piatto, scegli una categoria, premi Elenca tutte oppure Sorprendimi per averne uno a caso.</p>`;
 }
 function roll(){
   const p = pool();
@@ -700,7 +710,8 @@ function buildDatalist(){
   $("ing-list").innerHTML = Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,250).map(([k])=>`<option value="${esc(k)}">`).join("");
 }
 function refresh(){ updateFilterCount(); renderCats(); if(S.tab==="fridge") renderFridge(); if(S.tab==="random") renderRandom(); }
-function setStatus(t){ $("status").textContent = t; }
+function netErr(e){ const m = String((e&&e.message)||e||""); return /failed to fetch|networkerror|load failed/i.test(m) ? "Google non è raggiungibile da questa rete (firewall, VPN o antivirus). Prova con un'altra rete, per esempio i dati del telefono." : m; }
+function setStatus(t){ $("status").textContent = t; const m=$("load-msg"); if(m) m.textContent = t; }
 function setRecipes(list, source){
   const cnt = {}, sigs = {}, out = [];
   list.forEach(r=>{
@@ -765,10 +776,10 @@ async function loadData(){
     console.warn(e);
     let cached = null; try{ cached = localStorage.getItem(TXT_KEY); }catch(_){}
     try{
-      if(cached) fromText(cached, "copia salvata, Drive non raggiungibile ("+(e.message||e)+")");
+      if(cached) fromText(cached, "copia salvata, Drive non raggiungibile: "+netErr(e));
       else throw e;
     }catch(_){
-      setRecipes(parseRecipes(DEMO,"Primi"), "solo 3 ricette di esempio, Drive non raggiungibile: "+(e.message||e));
+      setRecipes(parseRecipes(DEMO,"Primi"), "solo 3 ricette di esempio. "+netErr(e));
       $("load-panel").querySelector("details").open = true;
     }
   }
@@ -900,8 +911,10 @@ function showTab(t){
   if(t==="fridge") renderFridge();
 }
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
-$("cats").addEventListener("click",e=>{ const b=e.target.closest("[data-cat]"); if(!b) return; const c=b.dataset.cat; S.cats.has(c)?S.cats.delete(c):S.cats.add(c); S.mode = S.mode==="roll" ? "list" : S.mode; renderRandom(); });
-$("q").addEventListener("input",()=>{ S.mode="list"; renderRandom(); });
+$("cats").addEventListener("click",e=>{ const b=e.target.closest("[data-cat]"); if(!b) return; const c=b.dataset.cat; S.cats.has(c)?S.cats.delete(c):S.cats.add(c); S.shown=40; S.mode = S.mode==="roll" ? "list" : S.mode; renderRandom(); });
+$("q").addEventListener("input",()=>{ S.mode="list"; S.shown=40; renderRandom(); });
+$("browse").addEventListener("click",()=>{ S.browse=!S.browse; $("browse").setAttribute("aria-pressed",S.browse); S.shown=40; S.mode="list"; renderRandom(); });
+$("random-out").addEventListener("click",e=>{ if(e.target.closest("#more")){ S.shown+=40; const y=window.scrollY; renderRandom(); window.scrollTo(0,y); } });
 $("roll").addEventListener("click",roll);
 $("diet").addEventListener("click",e=>{ const b=e.target.closest("[data-diet]"); if(!b) return; const k=b.dataset.diet; S.excl.has(k)?S.excl.delete(k):S.excl.add(k); renderDiet(); save(); refresh(); });
 ["f-people","f-time","f-season","f-base","f-miss"].forEach(id=>$(id).addEventListener("change",()=>{ save(); refresh(); }));

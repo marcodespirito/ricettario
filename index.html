@@ -138,6 +138,16 @@ details>summary{cursor:pointer;font-weight:600;font-size:14px}
 .steps li{counter-increment:s;position:relative;padding-left:34px;margin:8px 0}
 .steps li::before{content:counter(s);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:var(--chip);color:var(--ink);font-size:12px;font-weight:700;display:grid;place-items:center}
 .detail a{color:var(--accent);font-weight:600}
+.actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.btn.danger{background:transparent;color:#b3261e;border:1px solid color-mix(in srgb,#b3261e 45%,var(--line))}
+dialog#ed{border:1px solid var(--line);border-radius:18px;background:var(--surface);color:var(--ink);padding:20px;width:min(660px,94vw);max-height:92vh;overflow:auto}
+dialog#ed::backdrop{background:rgba(0,0,0,.5)}
+#ed h2{margin:0 0 4px;font-size:20px}
+#ed label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+#ed input[type=text],#ed input[type=password],#ed select,#ed textarea{width:100%;font:inherit;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--ink)}
+#ed textarea{min-height:150px;resize:vertical;line-height:1.4}
+#ed .erow{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+#ed .err{color:#b3261e;font-size:14px;min-height:20px;margin-top:10px}
 .list-head{font-family:var(--display);font-size:16px;margin:18px 2px 10px}
 .empty{color:var(--muted);padding:28px 12px;text-align:center;background:var(--surface);border:1px dashed var(--line);border-radius:16px}
 .drop{border:2px dashed var(--line);border-radius:16px;padding:22px;text-align:center;background:var(--bg)}
@@ -203,6 +213,7 @@ details>summary{cursor:pointer;font-weight:600;font-size:14px}
       <div class="row" style="margin-top:12px">
         <button class="btn big" id="roll"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>Sorprendimi</button>
         <span class="note" id="roll-count" style="margin:0"></span>
+        <button class="btn ghost small" id="new-recipe" type="button" hidden>+ Nuova ricetta</button>
       </div>
     </div>
     <div id="random-out"></div>
@@ -278,7 +289,7 @@ details>summary{cursor:pointer;font-weight:600;font-size:14px}
   <section class="panel" id="load-panel">
     <details>
       <summary>Dati e aggiornamento</summary>
-      <p class="note">L'app legge il file ricette.txt dal tuo Google Drive tramite un indirizzo personale. Incollalo qui una volta: resta su questo dispositivo.</p>
+      <p class="note">L'app legge l'archivio delle ricette dal tuo Google Drive tramite un indirizzo personale. Incollalo qui una volta: resta su questo dispositivo. Le ricette nuove delle note si aggiungono da sole quando apri l'app.</p>
       <form class="row" id="url-form" style="margin-top:8px">
         <input type="text" id="url-input" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Indirizzo dei dati" autocomplete="off" style="flex:1;min-width:220px">
         <button class="btn small" type="submit">Salva e aggiorna</button>
@@ -297,6 +308,27 @@ details>summary{cursor:pointer;font-weight:600;font-size:14px}
     </details>
   </section>
 </div>
+
+<dialog id="ed" aria-labelledby="ed-h">
+  <h2 id="ed-h">Modifica ricetta</h2>
+  <div id="ed-del" hidden><p id="ed-del-text" style="margin:8px 0 0"></p></div>
+  <div id="ed-fields">
+    <label for="ed-title">Titolo</label><input type="text" id="ed-title" autocomplete="off">
+    <label for="ed-cat">Categoria</label><select id="ed-cat"></select>
+    <label for="ed-ing">Ingredienti (uno per riga)</label><textarea id="ed-ing" spellcheck="false"></textarea>
+    <label for="ed-steps">Procedimento (un passaggio per riga)</label><textarea id="ed-steps"></textarea>
+    <label for="ed-link">Link (facoltativo)</label><input type="text" id="ed-link" autocomplete="off">
+  </div>
+  <div id="ed-pass-wrap">
+    <label for="ed-pass" id="ed-pass-l">Password</label><input type="password" id="ed-pass" autocomplete="off">
+    <div id="ed-pass2-wrap" hidden><label for="ed-pass2">Ripeti la password</label><input type="password" id="ed-pass2" autocomplete="off"></div>
+  </div>
+  <div class="err" id="ed-msg" role="alert"></div>
+  <div class="erow">
+    <button class="btn ghost" type="button" id="ed-cancel">Annulla</button>
+    <button class="btn" type="button" id="ed-ok">Salva</button>
+  </div>
+</dialog>
 
 <script src="config.js"></script>
 <script>
@@ -545,6 +577,7 @@ function card(r, m){
           <div>${steps?`<h4>Procedimento</h4><ol class="steps">${steps}</ol>`:""}</div>
         </div>
         ${r.link?`<p style="margin:12px 0 0"><a href="${esc(r.link)}" target="_blank" rel="noopener">Apri il video originale</a></p>`:""}
+        ${S.canEdit?`<div class="actions"><button class="btn ghost small" type="button" data-edit="${esc(r.title)}">Modifica</button><button class="btn danger small" type="button" data-del-recipe="${esc(r.title)}">Elimina</button></div>`:""}
       </details>
     </div>
   </article>`;
@@ -698,8 +731,18 @@ function getDataUrl(){
   return u || (window.CONFIG && CONFIG.dataUrl) || "";
 }
 function readPayload(raw){
-  try{ const j = JSON.parse(raw); if(j && typeof j.text==="string") return {text:j.text, modified:j.modified}; }catch(e){}
-  return {text:raw, modified:null};
+  try{ const j = JSON.parse(raw); if(j && typeof j.text==="string") return {text:j.text, modified:j.modified, editable:j.ok===true, hasPass:!!j.hasPass}; }catch(e){}
+  return {text:raw, modified:null, editable:false, hasPass:false};
+}
+function srcLabel(modified){
+  const d = modified ? new Date(modified) : null;
+  return d && !isNaN(d) ? "da Drive, archivio del "+d.toLocaleDateString("it-IT")+" "+d.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}) : "da Drive";
+}
+function applyPayload(pl){
+  S.canEdit = !!pl.editable; S.hasPass = !!pl.hasPass;
+  $("new-recipe").hidden = !S.canEdit;
+  fromText(pl.text, srcLabel(pl.modified));
+  try{ localStorage.setItem(TXT_KEY, pl.text); }catch(e){}
 }
 async function loadData(){
   const url = getDataUrl();
@@ -715,11 +758,9 @@ async function loadData(){
   try{
     const r = await fetch(url+(url.includes("?")?"&":"?")+"t="+Date.now(), {cache:"no-store"});
     if(!r.ok) throw new Error("risposta "+r.status);
-    const {text, modified} = readPayload(await r.text());
-    if(text.trim().startsWith("<")) throw new Error("l'indirizzo non restituisce le ricette: controlla che l'accesso sia impostato su Chiunque");
-    const d = modified ? new Date(modified) : null;
-    fromText(text, d && !isNaN(d) ? "da Drive, file del "+d.toLocaleDateString("it-IT")+" "+d.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}) : "da Drive");
-    try{ localStorage.setItem(TXT_KEY, text); }catch(e){}
+    const pl = readPayload(await r.text());
+    if(pl.text.trim().startsWith("<")) throw new Error("l'indirizzo non restituisce le ricette: controlla che l'accesso sia impostato su Chiunque");
+    applyPayload(pl);
   }catch(e){
     console.warn(e);
     let cached = null; try{ cached = localStorage.getItem(TXT_KEY); }catch(_){}
@@ -732,6 +773,83 @@ async function loadData(){
     }
   }
 }
+
+/* ---------- Modifica ed eliminazione ricette ---------- */
+const PASS_KEY = "ricettario-pass";
+function getPass(){ try{ return localStorage.getItem(PASS_KEY)||""; }catch(e){ return ""; } }
+function setPass(p){ try{ p?localStorage.setItem(PASS_KEY,p):localStorage.removeItem(PASS_KEY); }catch(e){} }
+async function api(body){
+  const r = await fetch(getDataUrl(), {method:"POST", body:JSON.stringify(body)});
+  if(!r.ok) throw new Error("risposta "+r.status);
+  return await r.json();
+}
+let EDIT = null;
+function openEditor(title, mode){
+  const isNew = mode==="new";
+  const r = isNew ? {title:"", cat:"Primi", ing:[], steps:[], link:""} : S.recipes.find(x=>x.title===title);
+  if(!r) return;
+  EDIT = {title: isNew ? "" : r.title, mode};
+  const del = mode==="delete";
+  $("ed-h").textContent = isNew ? "Nuova ricetta" : del ? "Elimina ricetta" : "Modifica ricetta";
+  $("ed-ok").textContent = del ? "Elimina" : "Salva";
+  $("ed-ok").classList.toggle("danger", del);
+  $("ed-fields").hidden = del; $("ed-del").hidden = !del;
+  $("ed-del-text").textContent = "Eliminare \""+r.title+"\"? Non tornerà dalle note e non si può annullare.";
+  const cats = KNOWN_CATS.slice(); if(!cats.includes(r.cat)) cats.push(r.cat);
+  $("ed-cat").innerHTML = cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  $("ed-cat").value = r.cat;
+  $("ed-title").value = r.title; $("ed-ing").value = r.ing.join("\n"); $("ed-steps").value = r.steps.join("\n"); $("ed-link").value = r.link||"";
+  const need = !getPass();
+  $("ed-pass-wrap").hidden = !need;
+  $("ed-pass2-wrap").hidden = !(need && !S.hasPass);
+  $("ed-pass-l").textContent = S.hasPass ? "Password" : "Scegli una password (almeno 4 caratteri): serve per modificare ed eliminare";
+  $("ed-pass").value = ""; $("ed-pass2").value = ""; $("ed-msg").textContent = "";
+  $("ed").showModal();
+}
+function composeRecipe(){
+  const t = $("ed-title").value.trim().replace(/\s+/g," ");
+  const ing = $("ed-ing").value.split("\n").map(x=>x.replace(/^[*\-•]\s*/,"").trim()).filter(Boolean);
+  const st = $("ed-steps").value.split("\n").map(x=>x.replace(/^\d+[.)]\s*/,"").trim()).filter(Boolean);
+  const link = $("ed-link").value.trim();
+  if(!t) throw new Error("Il titolo è obbligatorio.");
+  if(!ing.length) throw new Error("Serve almeno un ingrediente.");
+  return "Cartella: "+$("ed-cat").value+"\n"+t+"\n\nIngredienti\n"+ing.map(x=>"* "+x).join("\n")+(st.length?"\nSteps\n"+st.map((x,i)=>(i+1)+". "+x).join("\n"):"")+(link?"\nLink: "+link:"");
+}
+async function submitEditor(){
+  const msg = $("ed-msg"), btn = $("ed-ok");
+  try{
+    let pass = getPass();
+    if(!pass){
+      pass = $("ed-pass").value;
+      if(!pass) throw new Error("Inserisci la password.");
+      if(!S.hasPass){
+        if(pass.length<4) throw new Error("La password deve avere almeno 4 caratteri.");
+        if(pass!==$("ed-pass2").value) throw new Error("Le due password non coincidono.");
+      }
+    }
+    const body = EDIT.mode==="delete" ? {action:"delete", title:EDIT.title, pass} : {action:"save", title:EDIT.title, pass, text:composeRecipe()};
+    btn.disabled = true; msg.textContent = "Salvo…";
+    if(!S.hasPass){ const o = await api({action:"setpass", pass}); if(!o.ok) throw new Error(o.error||"impossibile impostare la password"); S.hasPass = true; }
+    const o = await api(body);
+    if(o.badPass){ setPass(""); $("ed-pass-wrap").hidden = false; throw new Error("Password errata."); }
+    if(!o.ok) throw new Error(o.error||"errore");
+    setPass(pass);
+    applyPayload({text:o.text, modified:o.modified, editable:true, hasPass:true});
+    $("ed").close();
+  }catch(e){ msg.textContent = e.message||String(e); }
+  finally{ btn.disabled = false; }
+}
+$("ed-cancel").addEventListener("click",()=>$("ed").close());
+$("ed-ok").addEventListener("click",submitEditor);
+$("new-recipe").addEventListener("click",()=>openEditor("", "new"));
+$("random-out").addEventListener("click",e=>{
+  const b = e.target.closest("[data-edit],[data-del-recipe]"); if(!b) return;
+  if(b.dataset.edit!==undefined) openEditor(b.dataset.edit,"edit"); else openEditor(b.dataset.delRecipe,"delete");
+});
+$("fridge-out").addEventListener("click",e=>{
+  const b = e.target.closest("[data-edit],[data-del-recipe]"); if(!b) return;
+  if(b.dataset.edit!==undefined) openEditor(b.dataset.edit,"edit"); else openEditor(b.dataset.delRecipe,"delete");
+});
 
 /* ---------- Foto ---------- */
 function shrink(file){

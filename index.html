@@ -669,8 +669,16 @@ function buildDatalist(){
 function refresh(){ updateFilterCount(); renderCats(); if(S.tab==="fridge") renderFridge(); if(S.tab==="random") renderRandom(); }
 function setStatus(t){ $("status").textContent = t; }
 function setRecipes(list, source){
-  const seen = new Set(), out = [];
-  list.forEach(r=>{ const k=strip(r.title).replace(/\s+/g," "); if(seen.has(k)) return; seen.add(k); out.push(enrich(r)); });
+  const cnt = {}, sigs = {}, out = [];
+  list.forEach(r=>{
+    const k = strip(r.title).replace(/\s+/g," ");
+    const sig = strip(r.ing.join("|")+"#"+r.steps.join("|")).replace(/\s+/g," ");
+    const sg = sigs[k] || (sigs[k] = new Set());
+    if(sg.has(sig)) return; /* copia identica: la salto */
+    sg.add(sig);
+    cnt[k] = (cnt[k]||0)+1;
+    out.push(enrich(cnt[k]>1 ? Object.assign({}, r, {title: r.title+" "+cnt[k]}) : r));
+  });
   S.recipes = out; S.source = source; buildDatalist(); refresh();
   setStatus(out.length+" ricette · "+source);
   $("data-note").textContent = "Categorie trovate: "+[...new Set(out.map(r=>r.cat))].join(", ")+".";
